@@ -7,7 +7,7 @@ import requests
 from dotenv import load_dotenv
 
 app = Flask(__name__)
- 
+  
 load_dotenv()
 
 REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
