@@ -4,6 +4,7 @@ import io
 import os
 import base64
 import requests
+import replicate
 from dotenv import load_dotenv
 
 app = Flask(__name__)
@@ -26,47 +27,28 @@ def predict():
     result = {"object": "cup", "confidence": 0.94}
     return jsonify(result)
 
-@app.route('/blip', methods=['POST'])
-def blip_caption():
+@app.route('/ask', methods=['POST'])
+def ask():
     if 'image' not in request.files:
         return jsonify({'error': 'No image uploaded'}), 400
 
     image_file = request.files['image']
     prompt = request.form.get('prompt', 'Describe this scene.')
 
-    # Convert image to base64
+    # Convert to base64 image URL
     image_bytes = image_file.read()
     image_base64 = base64.b64encode(image_bytes).decode("utf-8")
     image_url = f"data:image/png;base64,{image_base64}"
 
-    # Prepare Replicate payload
-    headers = {"Authorization": f"Token {REPLICATE_API_TOKEN}"}
-    json_data = {
-        "version": "80537f9eead1a5bfa72d5ac6ea6414379be41d4d4f6679fd776e9535d1eb58bb",  # BLIP-2
-        "input": {
+    output = replicate.run(
+        "yorickvp/llava-13b:80537f9eead1a5bfa72d5ac6ea6414379be41d4d4f6679fd776e9535d1eb58bb",
+        input={
             "image": image_url,
             "prompt": prompt
         }
-    }
+    )
 
-    # Call Replicate
-    response = requests.post("https://api.replicate.com/v1/predictions", json=json_data, headers=headers)
-    if response.status_code != 201:
-        return jsonify({"error": "Replicate API error", "details": response.json()}), 500
-
-    prediction = response.json()
-    output_url = prediction['urls']['get']
-
-    # Poll result
-    while prediction["status"] not in ["succeeded", "failed"]:
-        r = requests.get(output_url, headers=headers)
-        prediction = r.json()
-
-    if prediction["status"] == "succeeded":
-        result = prediction["output"]
-        return jsonify({"caption": result})
-    else:
-        return jsonify({"error": "Prediction failed"}), 500
+    return jsonify({"response": output})
 
 @app.route('/', methods=['GET'])
 def home():
