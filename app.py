@@ -1,11 +1,18 @@
 from flask import Flask, request, jsonify
 from PIL import Image
 import io
+import os
 import base64
-import openai
+import requests
+from dotenv import load_dotenv
 
 app = Flask(__name__)
-openai.api_key = "your-openai-api-key"  # Replace with your actual key
+
+load_dotenv()
+
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
+
+app = Flask(__name__)
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -19,25 +26,47 @@ def predict():
     result = {"object": "cup", "confidence": 0.94}
     return jsonify(result)
 
-# NEW: ChatGPT endpoint
-@app.route('/chat', methods=['POST'])
-def chat():
-    user_message = request.json.get("message", "")
-    if not user_message:
-        return jsonify({'error': 'No message provided'}), 400
+@app.route('/blip', methods=['POST'])
+def blip_caption():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
 
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # or "gpt-3.5-turbo"
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that understands object layouts and spatial reasoning."},
-                {"role": "user", "content": user_message}
-            ]
-        )
-        reply = response['choices'][0]['message']['content']
-        return jsonify({"reply": reply})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    image_file = request.files['image']
+    prompt = request.form.get('prompt', 'Describe this scene.')
+
+    # Convert image to base64
+    image_bytes = image_file.read()
+    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+    image_url = f"data:image/png;base64,{image_base64}"
+
+    # Prepare Replicate payload
+    headers = {"Authorization": f"Token {REPLICATE_API_TOKEN}"}
+    json_data = {
+        "version": "b8dded4a8288f4f2c4c14ad00d84d5f1fdf214c42634ac39c6c0a6c6d1e3172b",  # BLIP-2
+        "input": {
+            "image": image_url,
+            "prompt": prompt
+        }
+    }
+
+    # Call Replicate
+    response = requests.post("https://api.replicate.com/v1/predictions", json=json_data, headers=headers)
+    if response.status_code != 201:
+        return jsonify({"error": "Replicate API error", "details": response.json()}), 500
+
+    prediction = response.json()
+    output_url = prediction['urls']['get']
+
+    # Poll result
+    while prediction["status"] not in ["succeeded", "failed"]:
+        r = requests.get(output_url, headers=headers)
+        prediction = r.json()
+
+    if prediction["status"] == "succeeded":
+        result = prediction["output"]
+        return jsonify({"caption": result})
+    else:
+        return jsonify({"error": "Prediction failed"}), 500
 
 @app.route('/', methods=['GET'])
 def home():

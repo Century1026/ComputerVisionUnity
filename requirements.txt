@@ -1,4 +1,6 @@
 Flask
 gunicorn
 Pillow
-openai
+replicate
+python-dotenv
+requests
