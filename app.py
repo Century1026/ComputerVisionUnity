@@ -42,7 +42,7 @@ def blip_caption():
     # Prepare Replicate payload
     headers = {"Authorization": f"Token {REPLICATE_API_TOKEN}"}
     json_data = {
-        "version": "f677695e5e89f8b236e52ecd1d3f01beb44c34606419bcc19345e046d8f786f9",  # BLIP-2
+        "version": "80537f9eead1a5bfa72d5ac6ea6414379be41d4d4f6679fd776e9535d1eb58bb",  # BLIP-2
         "input": {
             "image": image_url,
             "prompt": prompt
