@@ -35,20 +35,23 @@ def ask():
     image_file = request.files['image']
     prompt = request.form.get('prompt', 'Describe this scene.')
 
-    # Convert to base64 image URL
-    image_bytes = image_file.read()
-    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-    image_url = f"data:image/png;base64,{image_base64}"
+    try:
+        image_bytes = image_file.read()
+        image_format = image_file.filename.split('.')[-1]
+        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+        image_url = f"data:image/{image_format};base64,{image_base64}"
 
-    output = replicate.run(
-        "yorickvp/llava-13b:80537f9eead1a5bfa72d5ac6ea6414379be41d4d4f6679fd776e9535d1eb58bb",
-        input={
-            "image": image_url,
-            "prompt": prompt
-        }
-    )
+        output = replicate.run(
+            "yorickvp/llava-13b:80537f9eead1a5bfa72d5ac6ea6414379be41d4d4f6679fd776e9535d1eb58bb",
+            input={"image": image_url, "prompt": prompt}
+        )
 
-    return jsonify({"response": output})
+        # Return as plain text or json, depending on the model's output type
+        return jsonify({"response": output})
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/', methods=['GET'])
 def home():
