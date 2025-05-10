@@ -47,7 +47,7 @@ def ask():
         )
 
         # Return as plain text or json, depending on the model's output type
-        return jsonify({"response": list(output)})
+        return jsonify({"response": ''.join(output).strip()})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
